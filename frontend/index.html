@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Shortly — URL Shortener</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- =========================
+         NAVBAR
+    ========================== -->
+    <header class="navbar">
+        <div class="logo">
+            Shortly<span>.</span>
+        </div>
+
+        <div class="nav-badge">
+            ⚡ Fast & Secure
+        </div>
+    </header>
+
+
+    <!-- =========================
+         HERO SECTION
+    ========================== -->
+    <main class="hero">
+
+        <div class="hero-content">
+
+            <div class="badge">
+                🔗 Simple URL Shortener
+            </div>
+
+            <h1>
+                Make your links
+                <span>short & powerful.</span>
+            </h1>
+
+            <p class="subtitle">
+                Transform long URLs into clean, shareable links
+                in seconds.
+            </p>
+
+
+
+            <!-- =========================
+     URL HISTORY
+========================== -->
+
+<section class="history-section">
+
+    <div class="history-header">
+        <div>
+            <span class="history-badge">📊 Your Links</span>
+            <h2>Recent Shortened URLs</h2>
+        </div>
+
+        <button id="refreshHistoryBtn">
+            Refresh ↻
+        </button>
+    </div>
+
+    <div id="historyList" class="history-list">
+        <p class="history-empty">
+            No shortened URLs yet.
+        </p>
+    </div>
+
+</section>
+
+
+            <!-- =========================
+                 URL FORM
+            ========================== -->
+            <div class="shortener-card">
+
+                <form id="shortenForm">
+
+                    <div class="input-wrapper">
+
+                        <span class="input-icon">🔗</span>
+
+                        <input
+                            type="url"
+                            id="originalUrl"
+                            placeholder="Paste your long URL here..."
+                            required
+                        >
+
+                    </div>
+
+
+                        <div class="alias-wrapper">
+
+    <span class="alias-label">Custom alias (optional)</span>
+
+    <div class="alias-input-row">
+
+        <span class="alias-prefix">
+            localhost:5000/
+        </span>
+
+        <input
+            type="text"
+            id="customAlias"
+            placeholder="my-link"
+            maxlength="30"
+            pattern="[A-Za-z0-9_-]+"
+        >
+
+    </div>
+
+</div>
+
+
+
+                    <button type="submit" id="shortenBtn">
+                        Shorten URL
+                        <span>→</span>
+                    </button>
+
+                </form>
+
+
+                <!-- RESULT -->
+                <div id="resultBox" class="result-box hidden">
+
+                    <p class="result-label">
+                        Your shortened URL
+                    </p>
+
+                    <div class="result-row">
+
+                        <input
+                            type="text"
+                            id="shortUrl"
+                            readonly
+                        >
+
+                        <button id="copyBtn">
+                            Copy
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ERROR -->
+                <div id="errorBox" class="error-box hidden"></div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- =========================
+         FEATURES
+    ========================== -->
+    <section class="features">
+
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <h3>Lightning Fast</h3>
+            <p>
+                Generate short URLs instantly with our fast backend.
+            </p>
+        </div>
+
+
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Secure</h3>
+            <p>
+                Your URLs are stored securely in MongoDB.
+            </p>
+        </div>
+
+
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>Track Clicks</h3>
+            <p>
+                Monitor how many times your shortened links are opened.
+            </p>
+        </div>
+
+    </section>
+
+
+    <!-- =========================
+         FOOTER
+    ========================== -->
+    <footer>
+
+        <p>
+            Built with ❤️ using Node.js, Express & MongoDB
+        </p>
+
+        <p class="copyright">
+            © 2026 Shortly
+        </p>
+
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>
