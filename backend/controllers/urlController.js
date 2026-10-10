@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const Url = require("../models/Url");
+const Url = require("../models/url");
 
 // ==========================================
 // CREATE SHORT URL
