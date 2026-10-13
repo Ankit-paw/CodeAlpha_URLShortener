@@ -1,270 +1,162 @@
 const crypto = require("crypto");
 const Url = require("../models/url");
 
-// ==========================================
-// CREATE SHORT URL
-// ==========================================
+const BASE_URL = (
+    process.env.BASE_URL ||
+    "https://codealpha-urlshortener-4n5t.onrender.com"
+).replace(/\/+$/, "");
 
-const createShortUrl = async (req, res) => {
-  try {
-    const { originalUrl, alias } = req.body;
-
-    // Check original URL
-    if (!originalUrl) {
-      return res.status(400).json({
-        success: false,
-        message: "Original URL is required",
-      });
-    }
-
-    // Validate URL format
+// Create a short URL
+async function createShortUrl(req, res) {
     try {
-      new URL(originalUrl);
+        const { originalUrl } = req.body;
+
+        if (!originalUrl || typeof originalUrl !== "string") {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide a valid URL."
+            });
+        }
+
+        let parsedUrl;
+
+        try {
+            parsedUrl = new URL(originalUrl);
+        } catch {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid URL provided."
+            });
+        }
+
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+            return res.status(400).json({
+                success: false,
+                message: "Only HTTP and HTTPS URLs are supported."
+            });
+        }
+
+        // Generate a unique short code
+        let shortCode;
+
+        do {
+            shortCode = crypto.randomBytes(4).toString("hex");
+        } while (await Url.exists({ shortCode }));
+
+        // Save the URL in MongoDB
+        const savedUrl = await Url.create({
+            originalUrl: parsedUrl.href,
+            shortCode
+        });
+
+        // Generate the complete short URL
+        const shortUrl = `${BASE_URL}/${savedUrl.shortCode}`;
+
+        return res.status(201).json({
+            success: true,
+            originalUrl: savedUrl.originalUrl,
+            shortCode: savedUrl.shortCode,
+            shortUrl: shortUrl
+        });
+
     } catch (error) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid URL",
-      });
-    }
+        console.error("Create Short URL Error:", error);
 
-    // ==========================================
-    // CUSTOM ALIAS VALIDATION
-    // ==========================================
-
-    let cleanAlias;
-
-    if (alias) {
-      cleanAlias = alias.trim().toLowerCase();
-
-      // 3-30 characters
-      if (cleanAlias.length < 3 || cleanAlias.length > 30) {
-        return res.status(400).json({
-          success: false,
-          message: "Alias must be between 3 and 30 characters",
+        return res.status(500).json({
+            success: false,
+            message: "Failed to create short URL."
         });
-      }
+    }
+}
 
-      // Only letters, numbers, hyphen and underscore
-      if (!/^[a-z0-9_-]+$/.test(cleanAlias)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Alias can contain only letters, numbers, hyphens and underscores",
+// Redirect to the original URL
+async function redirectToOriginalUrl(req, res) {
+    try {
+        const { shortCode } = req.params;
+
+        const url = await Url.findOneAndUpdate(
+            { shortCode },
+            { $inc: { clicks: 1 } },
+            { new: true }
+        );
+
+        if (!url) {
+            return res.status(404).send("Short URL not found.");
+        }
+
+        return res.redirect(url.originalUrl);
+
+    } catch (error) {
+        console.error("Redirect Error:", error);
+
+        return res.status(500).send("Server error.");
+    }
+}
+
+// Get URL analytics
+async function getUrlAnalytics(req, res) {
+    try {
+        const { shortCode } = req.params;
+
+        const url = await Url.findOne({ shortCode });
+
+        if (!url) {
+            return res.status(404).json({
+                success: false,
+                message: "Short URL not found."
+            });
+        }
+
+        return res.json({
+            success: true,
+            originalUrl: url.originalUrl,
+            shortCode: url.shortCode,
+            shortUrl: `${BASE_URL}/${url.shortCode}`,
+            clicks: url.clicks,
+            createdAt: url.createdAt
         });
-      }
 
-      // Check if alias already exists
-      const existingAlias = await Url.findOne({
-        alias: cleanAlias,
-      });
+    } catch (error) {
+        console.error("Analytics Error:", error);
 
-      if (existingAlias) {
-        return res.status(409).json({
-          success: false,
-          message: "This custom alias is already taken",
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch analytics."
         });
-      }
     }
+}
 
-    // ==========================================
-    // GENERATE UNIQUE SHORT CODE
-    // ==========================================
+// Get URL history
+async function getUrlHistory(req, res) {
+    try {
+        const urls = await Url.find()
+            .sort({ createdAt: -1 })
+            .limit(50);
 
-    let shortCode;
-    let existingUrl;
+        return res.json({
+            success: true,
+            urls: urls.map((url) => ({
+                originalUrl: url.originalUrl,
+                shortCode: url.shortCode,
+                shortUrl: `${BASE_URL}/${url.shortCode}`,
+                clicks: url.clicks,
+                createdAt: url.createdAt
+            }))
+        });
 
-    do {
-      shortCode = crypto.randomBytes(4).toString("hex");
+    } catch (error) {
+        console.error("URL History Error:", error);
 
-      existingUrl = await Url.findOne({
-        shortCode,
-      });
-    } while (existingUrl);
-
-    // ==========================================
-    // SAVE URL
-    // ==========================================
-
-    const newUrl = await Url.create({
-      originalUrl: originalUrl.trim(),
-      shortCode,
-      alias: cleanAlias || undefined,
-    });
-
-    // Use alias if available
-    const shortPath = newUrl.alias || newUrl.shortCode;
-
-    // ==========================================
-    // RESPONSE
-    // ==========================================
-
-    return res.status(201).json({
-      success: true,
-      message: "Short URL created successfully",
-
-      data: {
-        originalUrl: newUrl.originalUrl,
-        shortCode: newUrl.shortCode,
-        alias: newUrl.alias || null,
-        shortUrl: `${process.env.BASE_URL}/${shortPath}`,
-        clicks: newUrl.clicks,
-        createdAt: newUrl.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error("Create Short URL Error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-};
-
-
-// ==========================================
-// REDIRECT SHORT URL
-// ==========================================
-
-const redirectToOriginalUrl = async (req, res) => {
-  try {
-    const { shortCode } = req.params;
-
-    // Find using shortCode OR alias
-    const url = await Url.findOne({
-      $or: [
-        { shortCode: shortCode },
-        { alias: shortCode.toLowerCase() },
-      ],
-    });
-
-    // URL not found
-    if (!url) {
-      return res.status(404).json({
-        success: false,
-        message: "Short URL not found",
-      });
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch URL history."
+        });
     }
-
-    // ==========================================
-    // INCREASE CLICK COUNT
-    // ==========================================
-
-    url.clicks += 1;
-
-    await url.save();
-
-    // ==========================================
-    // REDIRECT
-    // ==========================================
-
-    return res.redirect(url.originalUrl);
-  } catch (error) {
-    console.error("Redirect Error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-};
-
-
-// ==========================================
-// GET URL ANALYTICS
-// ==========================================
-
-const getUrlAnalytics = async (req, res) => {
-  try {
-    const { shortCode } = req.params;
-
-    // Find using shortCode OR alias
-    const url = await Url.findOne({
-      $or: [
-        { shortCode: shortCode },
-        { alias: shortCode.toLowerCase() },
-      ],
-    });
-
-    if (!url) {
-      return res.status(404).json({
-        success: false,
-        message: "Short URL not found",
-      });
-    }
-
-    // Determine active path
-    const shortPath = url.alias || url.shortCode;
-
-    return res.status(200).json({
-      success: true,
-
-      data: {
-        originalUrl: url.originalUrl,
-        shortCode: url.shortCode,
-        alias: url.alias || null,
-        shortUrl: `${process.env.BASE_URL}/${shortPath}`,
-        clicks: url.clicks,
-        createdAt: url.createdAt,
-        updatedAt: url.updatedAt,
-      },
-    });
-  } catch (error) {
-    console.error("Analytics Error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-};
-
-
-// ==========================================
-// GET URL HISTORY
-// ==========================================
-
-const getUrlHistory = async (req, res) => {
-  try {
-    const urls = await Url.find()
-      .sort({ createdAt: -1 })
-      .limit(20);
-
-    return res.status(200).json({
-      success: true,
-      count: urls.length,
-
-      data: urls.map((url) => {
-        const shortPath = url.alias || url.shortCode;
-
-        return {
-          originalUrl: url.originalUrl,
-          shortCode: url.shortCode,
-          alias: url.alias || null,
-          shortUrl: `${process.env.BASE_URL}/${shortPath}`,
-          clicks: url.clicks,
-          createdAt: url.createdAt,
-        };
-      }),
-    });
-  } catch (error) {
-    console.error("History Error:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-};
-
-
-// ==========================================
-// EXPORT CONTROLLERS
-// ==========================================
+}
 
 module.exports = {
-  createShortUrl,
-  redirectToOriginalUrl,
-  getUrlAnalytics,
-  getUrlHistory,
+    createShortUrl,
+    redirectToOriginalUrl,
+    getUrlAnalytics,
+    getUrlHistory
 };
